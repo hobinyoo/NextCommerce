@@ -1,6 +1,6 @@
-// import ImageGallery from 'react-image-gallery'
 import Carousel from 'nuka-carousel/lib/carousel'
 import Image from 'next/image'
+import react, { useEffect } from 'react'
 const images = [
   {
     original: 'https://picsum.photos/id/1018/1000/600/',
@@ -33,13 +33,53 @@ const images = [
 ]
 
 import React, { useState } from 'react'
-import Head from 'next/head'
 import CustomEditor from '@components/Editor'
+import { useRouter } from 'next/router'
+import { EditorState, convertFromRaw, convertToRaw } from 'draft-js'
 
 export default function Products() {
-  //   return <ImageGallery items={images} />
   const [index, setIndex] = useState(0)
+  const router = useRouter()
+  const { id: productId } = router.query
+  const [editerState, setEditerState] = useState<EditorState | undefined>(
+    undefined
+  )
 
+  useEffect(() => {
+    if (productId != null) {
+      fetch(`api/get-product?id=${productId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.items.contents) {
+            setEditerState(
+              EditorState.createWithContent(
+                convertFromRaw(JSON.parse(data.items.contents))
+              )
+            )
+          } else {
+            setEditerState(EditorState.createEmpty())
+          }
+        })
+    }
+  }, [productId])
+
+  const handleSave = () => {
+    if (editerState) {
+      fetch('api/update-product', {
+        method: 'POST',
+        body: JSON.stringify({
+          id: productId,
+          contents: JSON.stringify(
+            convertToRaw(editerState.getCurrentContent())
+          ),
+        }),
+      })
+        .then((res) => res.json())
+        .then(() => {
+          alert('Success')
+        })
+    }
+  }
   return (
     <>
       <Carousel
@@ -67,7 +107,13 @@ export default function Products() {
           </div>
         ))}
       </div>
-      <CustomEditor />
+      {editerState != null && (
+        <CustomEditor
+          editorState={editerState}
+          onEditorStateChange={setEditerState}
+          onSave={handleSave}
+        />
+      )}
     </>
   )
 }
